@@ -1,0 +1,72 @@
+---
+title: "project3"
+output: html_document
+---
+
+
+```{r}
+library("here")
+library(tidyverse)
+rds_files <- c("b_lyrics.RDS", "ts_lyrics.RDS", "sales.RDS")
+## Check whether we have all 3 files
+if (any(!file.exists(here("data", rds_files)))) {
+    ## If we don't, then download the data
+    b_lyrics <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-09-29/beyonce_lyrics.csv")
+    ts_lyrics <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-09-29/taylor_swift_lyrics.csv")
+    sales <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-09-29/sales.csv")
+
+    ## Then save the data objects to RDS files
+    saveRDS(b_lyrics, file = here("data", "b_lyrics.RDS"))
+    saveRDS(ts_lyrics, file = here("data", "ts_lyrics.RDS"))
+    saveRDS(sales, file = here("data", "sales.RDS"))
+}
+
+b_lyrics <- readRDS(here("data", "b_lyrics.RDS"))
+ts_lyrics <- readRDS(here("data", "ts_lyrics.RDS"))
+sales <- readRDS(here("data", "sales.RDS"))
+```
+
+# Part 1: Explore album sales
+
+## Part 1A
+
+```{r}
+sales <- sales %>%
+  mutate(released = mdy(str_replace(released,"\\(.*\\]","")),
+         country = fct_collapse(
+           as.factor(country),
+           FRA = c("FR","FRA"),
+           WW = c("World","WW")),
+         sales = sales/1000000
+         )%>%
+  filter(country %in% c("UK","US","WW"))
+sales
+
+```
+
+## Part 1B
+
+```{r}
+sales%>%
+  filter(country == "US")%>%
+  mutate(years_since_release = round(time_length(interval(released, today()), "years")))%>%
+  group_by(artist)%>%
+  summarize(
+    most_recent_album = min(years_since_release),
+    oldest_album = max(years_since_release),
+    median_years_since_album = median(years_since_release)
+  )
+```
+
+## Part 1C
+
+```{r}
+sales %>%
+  group_by(artist, country)%>%
+  summarize(
+    total_album_sales = sum(sales)
+  )%>%
+  ungroup()%>%
+  ggplot(aes(x = artist, y = total_album_sales, fill = country))+
+  geom_bar(position="stack")
+```
