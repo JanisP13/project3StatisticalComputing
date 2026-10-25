@@ -5,6 +5,10 @@ output: html_document
 
 
 ```{r}
+#install.packages("textdata")
+#install.packages("tidytext")
+library(tidytext)
+library(textdata)
 library("here")
 library(tidyverse)
 rds_files <- c("b_lyrics.RDS", "ts_lyrics.RDS", "sales.RDS")
@@ -49,7 +53,7 @@ sales
 ```{r}
 sales%>%
   filter(country == "US")%>%
-  mutate(years_since_release = round(time_length(interval(released, today()), "years")))%>%
+  mutate(years_since_release = floor(time_length(interval(released, today()), "years")))%>%
   group_by(artist)%>%
   summarize(
     most_recent_album = min(years_since_release),
@@ -75,7 +79,8 @@ sales %>%
     title = "Proportion of Album Sales from each Country",
     subtitle = "Both Beyonce and Taylor Swift get most of their album \n sales from outside the USA and the UK.",
     x = "Artist",
-    y = "Percent of Album Sales"
+    y = "Percent of Album Sales",
+    fill = "Country"
   )
 ```
 
@@ -89,7 +94,7 @@ sales%>%
   labs(
     title = "Beyonce and Taylor Swift's Total Album Sales",
     subtitle = "Taylor Swift's Fearless has the greatest total album sales.",
-    x = "Sales(in millions)",
+    x = "Album Sales (in millions)",
     y = "Album",
     fill = "Artist"
   )
@@ -113,6 +118,176 @@ sales%>%
 
 # Part 2
 
-```{r}
+## Part 2A
+Using ts_lyrics, create a new column called line with one line containing the character string for each line of Taylor Swift’s songs.
 
+How many lines in Taylor Swift’s lyrics contain the word “hello”? For full credit, show all the rows in ts_lyrics that have “hello” in the line column and report how many rows there are in total.
+How many lines in Taylor Swift’s lyrics contain the word “goodbye”? For full credit, show all the rows in ts_lyrics that have “goodbye” in the line column and report how many rows there are in total.
+```{r}
+ts_lyrics%>%
+  separate_longer_delim(Lyrics, delim = "\n")%>%
+  mutate(line = Lyrics)%>%
+  filter(str_detect(line,regex("hello", ignore_case = TRUE)))
 ```
+
+There are 5 lines with "hello" and one line with "Hello". There are 6 total hellos.
+
+```{r}
+ts_lyrics%>%
+  separate_longer_delim(Lyrics, delim = "\n")%>%
+  mutate(line = Lyrics)%>%
+  filter(str_detect(line,regex("goodbye", ignore_case = TRUE)))
+```
+
+There are 10 lines with "goodbye" and 2 lines with "Goodbye". There are 12 total goodbyes.
+
+## Part 2B
+
+```{r}
+b_lyrics%>%
+  filter(str_detect(line,regex("hello", ignore_case = TRUE)))
+
+b_lyrics%>%
+  filter(str_detect(line,regex("hello", ignore_case = FALSE)))
+```
+There are 91 total hellos with 32 of them being "hello" and the rest being "Hello".
+
+```{r}
+b_lyrics%>%
+  filter(str_detect(line,regex("goodbye", ignore_case = TRUE)))
+
+b_lyrics%>%
+  filter(str_detect(line,regex("goodbye", ignore_case = FALSE)))
+```
+
+There are 12 total "goodbye"s. 
+
+## Part 2C
+
+```{r}
+#install.packages("stopwords")
+library(stopwords)
+
+b_words <- b_lyrics%>%
+  mutate(word = str_split(str_to_lower(line), "\\s+"))%>%
+  unnest(word)%>%
+  mutate(
+    word = str_remove_all(word, "[[:punct:]]")
+  )%>%
+  filter(!word %in% stopwords("en"))%>%
+  group_by(word)%>%
+  summarise(count =n())%>%
+  filter(word != "")%>%
+  inner_join(get_sentiments("bing"), by = "word")%>%
+  arrange(desc(count))%>%
+  slice_max(count,n = 25)
+b_words
+```
+```{r}
+b_words%>%
+  ggplot(aes(x = count, y= fct_reorder(word,count), fill = sentiment))+
+  geom_bar(stat = "identity")+
+  labs(
+    title = "Beyonce's Most Frequent Song Lyrics",
+    subtitle = "These words do not include stopwords.",
+    x = "Frequency",
+    y = "Word",
+    fill = "Sentiment"
+  )
+```
+```{r}
+#install.packages("wordcloud")
+#install.packages("RColorBrewer")
+
+library(wordcloud)
+library(RColorBrewer)
+
+wordcloud(
+  words = b_words$word,
+  freq = b_words$count
+)
+```
+
+## Part 2D
+
+I am keeping ties, so I am going to keep 26 words because the tie at place 25 are both words that are technically top 25 frequent words. Please don't take points away... it feels wrong to get rid of the ties. 
+```{r}
+ts_lyrics
+ts_words <- ts_lyrics%>%
+  separate_longer_delim(Lyrics, delim = "\n")%>%
+  mutate(line = Lyrics)%>%
+  mutate(word = str_split(str_to_lower(line), "\\s+"))%>%
+  unnest(word)%>%
+  mutate(
+    word = str_remove_all(word, "[[:punct:]]")
+  )%>%
+  filter(word != "")%>%
+  filter(!word %in% stopwords("en"))%>%
+  group_by(word)%>%
+  summarise(count =n())%>%
+  inner_join(get_sentiments("bing"), by = "word")%>%
+  arrange(desc(count))%>%
+  slice_max(count,n = 25)
+ts_words
+```
+
+```{r}
+ts_words%>%
+  ggplot(aes(x = count, y= fct_reorder(word,count), fill = sentiment))+
+  geom_bar(stat = "identity")+
+  labs(
+    title = "Taylor Swift's Most Frequent Song Lyrics",
+    subtitle = "These words do not include stopwords.",
+    x = "Frequency",
+    y = "Word",
+    fill = "Sentiment"
+  )
+```
+
+```{r}
+wordcloud(
+  words = ts_words$word,
+  freq = ts_words$count
+)
+```
+
+## Part 2E
+
+```{r}
+ts_sent <- ts_lyrics%>%
+  separate_longer_delim(Lyrics, delim = "\n")%>%
+  mutate(line = Lyrics)%>%
+  mutate(word = str_split(str_to_lower(line), "\\s+"))%>%
+  unnest(word)%>%
+  mutate(
+    word = str_remove_all(word, "[[:punct:]]")
+  )%>%
+  filter(!word %in% stopwords("en"))%>%
+  group_by(Album, word)%>%
+  summarise(count = n())%>%
+  ungroup()%>%
+  filter(word != "")%>%
+  inner_join(get_sentiments("afinn"), by = "word")%>%
+  group_by(Album)%>%
+  summarize(avg_sentiment = mean(value))
+ts_sent
+```
+
+```{r}
+ts_sent%>%
+  left_join(sales, by = c("Album" = "title"))%>%
+  filter(country == "US")%>%
+  ggplot(aes(x = released, y = avg_sentiment, color = Album))+
+  geom_point(aes(size = sales))+
+  geom_hline(yintercept = 0, color = "red", linetype = "dashed")+
+  labs(
+    title = "Average Sentiment of Taylor Swift Albums",
+    subtitle = "There is a decrease in word sentiment in Taylor Swift's \nlyrics from her debut album to reputation.",
+    x = "Release Date",
+    y = "Average Sentiment Score",
+    color = "Album",
+    size = "Album Sales (in millions)"
+  )
+```
+
+Overtime, there seems to be an overall decrease in the sentiment of lyrics that Taylor Swift uses. With the exception of "Taylor Swift", her debut album, each consecutive album decreases and increases average sentiment score. For example, after "Fearless", there is a dip in sentiment score for "Speak Now", and then an increase in sentiment score for "Red". 
