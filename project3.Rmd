@@ -59,8 +59,9 @@ sales%>%
 ```
 
 ## Part 1C
-
+In each of the subsections below that ask you to create a plot, you must create a title, subtitle, x-axis label, and y-axis label with units where applicable. For example, if your axis says “sales” as an axis label, change it to “sales (in millions)”.
 ```{r}
+library(scales)
 sales %>%
   group_by(artist, country)%>%
   summarize(
@@ -68,5 +69,50 @@ sales %>%
   )%>%
   ungroup()%>%
   ggplot(aes(x = artist, y = total_album_sales, fill = country))+
-  geom_bar(position="stack")
+  geom_bar(stat = "identity", position="fill")+
+  scale_y_continuous(labels = percent)+
+  labs(
+    title = "Proportion of Album Sales from each Country",
+    subtitle = "Both Beyonce and Taylor Swift get most of their album \n sales from outside the USA and the UK.",
+    x = "Artist",
+    y = "Percent of Album Sales"
+  )
+```
+
+## Part 1D
+
+```{r}
+sales%>%
+  filter(country == "WW")%>%
+  ggplot(aes(x = sales, y = fct_reorder(title,sales), fill = artist))+
+  geom_bar(stat = "identity")+
+  labs(
+    title = "Beyonce and Taylor Swift's Total Album Sales",
+    subtitle = "Taylor Swift's Fearless has the greatest total album sales.",
+    x = "Sales(in millions)",
+    y = "Album",
+    fill = "Artist"
+  )
+```
+
+## Part 1E
+
+```{r}
+sales%>%
+  ggplot(aes(x = released, y = sales, color = artist))+
+  geom_point()+
+  facet_grid(country ~ .)+
+  labs(
+    title = "Album Sales by Release Date",
+    subtitle = "Taylor Swift's and Beyonce's albums have similar sales in the UK and world wide.",
+    x = "Time of Initial Album Release (Year)",
+    y = "Sales (in millions)",
+    color = "Artist"
+  )
+```
+
+# Part 2
+
+```{r}
+
 ```
